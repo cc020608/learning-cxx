@@ -1,5 +1,6 @@
 #include "../exercise.h"
-
+#include <iostream>
+#include <cassert>
 // C++ 中，`class` 和 `struct` 之间的**唯一区别**是
 // `class` 默认访问控制符是 `private`，
 // `struct` 默认访问控制符是 `public`。
@@ -15,12 +16,24 @@ class Fibonacci {
 public:
     // TODO: 实现构造器
     // Fibonacci()
-
+    Fibonacci():cache{0, 1}, cached(2) {}
     // TODO: 实现正确的缓存优化斐波那契计算
     size_t get(int i) {
-        for (; false; ++cached) {
-            cache[cached] = cache[cached - 1] + cache[cached - 2];
+        if (i < 0 || i >= 16) {
+            throw std::out_of_range("Index out of range");
         }
+
+        // 如果 i 已缓存，直接返回
+        if (cached > i) {
+            return cache[i];
+        }
+
+        // 计算并缓存 Fibonacci 数
+        for (int j = cached; j <= i; ++j) {
+            cache[j] = cache[j - 1] + cache[j - 2];
+        }
+        cached = i + 1; // 更新已缓存的数量
+
         return cache[i];
     }
 };

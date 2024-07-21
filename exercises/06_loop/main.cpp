@@ -1,13 +1,21 @@
 #include "../exercise.h"
-
+#include <iostream>
+#include <cassert>
 // TODO: 改正函数实现，实现正确的缓存优化斐波那契计算
 static unsigned long long fibonacci(int i) {
-    // TODO: 为缓存设置正确的初始值
-    static unsigned long long cache[128], cached;
-    // TODO: 设置正确的循环条件
-    for (; false; ++cached) {
-        cache[cached] = cache[cached - 1] + cache[cached - 2];
+    // 初始化缓存
+    static unsigned long long cache[128] = {0}; // 默认初始化为 0
+    static bool initialized = false;
+
+    if (!initialized) {
+        cache[0] = 0;
+        cache[1] = 1;
+        for (int j = 2; j < 128; ++j) {
+            cache[j] = cache[j - 1] + cache[j - 2];
+        }
+        initialized = true; // 标记为已初始化
     }
+
     return cache[i];
 }
 
