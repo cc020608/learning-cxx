@@ -8,60 +8,57 @@ struct Tensor4D {
     T *data;
 
     Tensor4D(unsigned int const shape_[4], T const *data_) {
-        std::memcpy(shape, shape_, 4 * sizeof(unsigned int));
         unsigned int size = 1;
-        for (int i = 0; i < 4; ++i) {
+        // TODO: 填入正确的 shape 并计算 size
+        for(int i=0;i<4;++i){
+            shape[i] = shape_[i];
             size *= shape[i];
         }
         data = new T[size];
         std::memcpy(data, data_, size * sizeof(T));
     }
-
     ~Tensor4D() {
         delete[] data;
     }
 
-    // 禁止复制和移动
+    // 为了保持简单，禁止复制和移动
     Tensor4D(Tensor4D const &) = delete;
     Tensor4D(Tensor4D &&) noexcept = delete;
 
+    // 这个加法需要支持“单向广播”。
+    // 具体来说，`others` 可以具有与 `this` 不同的形状，形状不同的维度长度必须为 1。
+    // `others` 长度为 1 但 `this` 长度不为 1 的维度将发生广播计算。
+    // 例如，`this` 形状为 `[1, 2, 3, 4]`，`others` 形状为 `[1, 2, 1, 4]`，
+    // 则 `this` 与 `others` 相加时，3 个形状为 `[1, 2, 1, 4]` 的子张量各自与 `others` 对应项相加。
     Tensor4D &operator+=(Tensor4D const &others) {
-        // 检查形状是否可广播
+        unsigned int size = 1;
         for (int i = 0; i < 4; ++i) {
-            if (shape[i] != others.shape[i] && shape[i] != 1 && others.shape[i] != 1) {
-                throw std::invalid_argument("Shapes are not broadcastable.");
+            if (others.shape[i] != 1 && others.shape[i] != shape[i]) {
+                throw std::invalid_argument("Shapes are not compatible for broadcasting");
             }
+            size *= shape[i];
         }
 
-        unsigned int total_size = 1;
-        for (int i = 0; i < 4; ++i) {
-            total_size *= std::max(shape[i], others.shape[i]);
-        }
-
-        for (unsigned int i = 0; i < total_size; ++i) {
-            unsigned int this_idx = 0;
-            unsigned int others_idx = 0;
-            unsigned int this_stride = 1;
-            unsigned int others_stride = 1;
-
+        for (unsigned int i = 0; i < size; ++i) {
+            unsigned int idx[4];
+            unsigned int stride = 1;
             for (int j = 3; j >= 0; --j) {
-                unsigned int this_dim = (shape[j] == 1) ? 0 : (i / this_stride) % shape[j];
-                unsigned int others_dim = (others.shape[j] == 1) ? 0 : (i / others_stride) % others.shape[j];
-
-                this_idx = this_idx * shape[j] + this_dim;
-                others_idx = others_idx * others.shape[j] + others_dim;
-
-                this_stride *= shape[j];
-                others_stride *= others.shape[j];
+                idx[j] = (i / stride) % shape[j];
+                stride *= shape[j];
             }
 
-            data[this_idx] += others.data[others_idx];
-        }
+            unsigned int other_idx = 0;
+            stride = 1;
+            for (int j = 3; j >= 0; --j) {
+                other_idx += (others.shape[j] == 1 ? 0 : idx[j]) * stride;
+                stride *= others.shape[j];
+            }
 
+            data[i] += others.data[other_idx];
+        }
         return *this;
     }
 };
-
 
 // ---- 不要修改以下代码 ----
 int main(int argc, char **argv) {
@@ -80,7 +77,7 @@ int main(int argc, char **argv) {
         auto t0 = Tensor4D(shape, data);
         auto t1 = Tensor4D(shape, data);
         t0 += t1;
-        for (auto i = 0u; i < sizeof(data) / sizeof(int); ++i) {
+        for (auto i = 0u; i < sizeof(data) / sizeof(*data); ++i) {
             ASSERT(t0.data[i] == data[i] * 2, "Tensor doubled by plus its self.");
         }
     }
@@ -111,7 +108,7 @@ int main(int argc, char **argv) {
         auto t0 = Tensor4D(s0, d0);
         auto t1 = Tensor4D(s1, d1);
         t0 += t1;
-        for (auto i = 0u; i < sizeof(d0) / sizeof(int); ++i) {
+        for (auto i = 0u; i < sizeof(d0) / sizeof(*d0); ++i) {
             ASSERT(t0.data[i] == 7.f, "Every element of t0 should be 7 after adding t1 to it.");
         }
     }
@@ -133,7 +130,7 @@ int main(int argc, char **argv) {
         auto t0 = Tensor4D(s0, d0);
         auto t1 = Tensor4D(s1, d1);
         t0 += t1;
-        for (auto i = 0u; i < sizeof(d0) / sizeof(int); ++i) {
+        for (auto i = 0u; i < sizeof(d0) / sizeof(*d0); ++i) {
             ASSERT(t0.data[i] == d0[i] + 1, "Every element of t0 should be incremented by 1 after adding t1 to it.");
         }
     }
